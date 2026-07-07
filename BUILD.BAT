@@ -1,0 +1,159 @@
+@REM - Build Installer Library + CLI Tools
+@ECHO OFF
+
+SET BUILD_LOG=BUILD.LOG
+SET BIN_DIR=BIN
+SET OBJ_DIR=OBJ
+SET SRC_DIR=SRC
+SET RC_DIR=RC
+
+IF NOT EXIST %BIN_DIR% MKDIR %BIN_DIR% >NUL
+IF NOT EXIST %OBJ_DIR% MKDIR %OBJ_DIR% >NUL
+
+ECHO Build Started.
+ECHO Build Started. > %BUILD_LOG%
+ECHO -------- >> %BUILD_LOG%
+
+REM ---------------------------------------------------------------
+REM BLDPLATFORM selection
+REM ---------------------------------------------------------------
+
+IF "%1"=="BCC"   SET BLDPLATFORM=BCC
+IF "%1"=="WCL"   SET BLDPLATFORM=WCL
+IF "%1"=="CL"    SET BLDPLATFORM=CL
+IF "%1"=="MSVC"  SET BLDPLATFORM=MSVC
+IF "%1"=="DJGPP" SET BLDPLATFORM=DJGPP
+IF "%1"=="MINGW" SET BLDPLATFORM=MINGW
+
+IF "%BLDPLATFORM%"=="" IF "%WINDIR%"=="" SET BLDPLATFORM=BCC
+IF "%BLDPLATFORM%"=="" SET BLDPLATFORM=MINGW
+
+ECHO [CONFIG] BLDPLATFORM is %BLDPLATFORM%
+ECHO BLDPLATFORM is %BLDPLATFORM% >> %BUILD_LOG%
+ECHO -------- >> %BUILD_LOG%
+
+REM ---------------------------------------------------------------
+REM Compiler setup
+REM ---------------------------------------------------------------
+
+IF "%BLDPLATFORM%"=="BCC" SET CC=BCC
+IF "%BLDPLATFORM%"=="BCC" SET CFLAGS=-ml -IINCLUDE
+IF "%BLDPLATFORM%"=="BCC" SET COMP_OUT=-o
+IF "%BLDPLATFORM%"=="BCC" SET LINK_OUT=-o
+IF "%BLDPLATFORM%"=="BCC" SET LIBS=
+
+IF "%BLDPLATFORM%"=="WCL" SET CC=WCL
+IF "%BLDPLATFORM%"=="WCL" SET CFLAGS=-mh -dC -k8192 -IINCLUDE -D__MSDOS__
+IF "%BLDPLATFORM%"=="WCL" SET COMP_OUT=-fo=
+IF "%BLDPLATFORM%"=="WCL" SET LINK_OUT=-fe=
+IF "%BLDPLATFORM%"=="WCL" SET LIBS=
+
+IF "%BLDPLATFORM%"=="MSVC" SET CC=cl
+IF "%BLDPLATFORM%"=="MSVC" SET CFLAGS=/nologo /DWIN /IINCLUDE
+IF "%BLDPLATFORM%"=="MSVC" SET COMP_OUT=/Fo
+IF "%BLDPLATFORM%"=="MSVC" SET LINK_OUT=/Fe
+IF "%BLDPLATFORM%"=="MSVC" SET LIBS=
+
+IF "%BLDPLATFORM%"=="MINGW" SET CC=gcc
+IF "%BLDPLATFORM%"=="MINGW" SET CFLAGS=-DWIN -IINCLUDE
+IF "%BLDPLATFORM%"=="MINGW" SET COMP_OUT=-o
+IF "%BLDPLATFORM%"=="MINGW" SET LINK_OUT=-o
+IF "%BLDPLATFORM%"=="MINGW" SET LIBS=-mconsole
+
+REM ---------------------------------------------------------------
+REM DEBUG mode
+REM ---------------------------------------------------------------
+
+IF NOT "%2"=="" IF "%BLDPLATFORM%"=="BCC"   SET CFLAGS=%CFLAGS% -DDEBUG -v
+IF NOT "%2"=="" IF "%BLDPLATFORM%"=="MINGW" SET CFLAGS=%CFLAGS% -DDEBUG -g
+IF NOT "%2"=="" IF "%BLDPLATFORM%"=="MSVC"  SET CFLAGS=%CFLAGS% /DDEBUG /Zi
+
+ECHO [CONFIG] Configured
+ECHO Compiler: %CC% >> %BUILD_LOG%
+ECHO Compiler Flags: %CFLAGS% >> %BUILD_LOG%
+ECHO -------- >> %BUILD_LOG%
+
+REM ---------------------------------------------------------------
+REM Clean OBJ dir for fresh build (avoid cross-platform conflicts)
+REM ---------------------------------------------------------------
+
+IF EXIST %OBJ_DIR%\INSTALL.LIB DEL %OBJ_DIR%\INSTALL.LIB
+IF EXIST %OBJ_DIR%\INSTALL.OBJ DEL %OBJ_DIR%\INSTALL.OBJ
+IF EXIST %OBJ_DIR%\PACK.OBJ DEL %OBJ_DIR%\PACK.OBJ
+IF EXIST %OBJ_DIR%\EXTRACT.OBJ DEL %OBJ_DIR%\EXTRACT.OBJ
+IF EXIST %OBJ_DIR%\MAINICON.OBJ DEL %OBJ_DIR%\MAINICON.OBJ
+IF EXIST %OBJ_DIR%\MAIN.RES DEL %OBJ_DIR%\MAIN.RES
+IF EXIST %BIN_DIR%\PACK.EXE DEL %BIN_DIR%\PACK.EXE
+IF EXIST %BIN_DIR%\EXTRACT.EXE DEL %BIN_DIR%\EXTRACT.EXE
+
+REM ---------------------------------------------------------------
+REM Resource file (icon)
+REM ---------------------------------------------------------------
+
+SET RC_OBJ=
+
+IF "%BLDPLATFORM%"=="MINGW" GOTO RC_MINGW
+IF "%BLDPLATFORM%"=="MSVC" GOTO RC_MSVC
+IF "%BLDPLATFORM%"=="BCC" GOTO RC_BCC
+GOTO RC_DONE
+
+:RC_MINGW
+windres %RC_DIR%\MAIN.RC -o %OBJ_DIR%\MAINICON.OBJ
+IF EXIST %OBJ_DIR%\MAINICON.OBJ SET RC_OBJ=%OBJ_DIR%\MAINICON.OBJ
+GOTO RC_DONE
+
+:RC_MSVC
+rc /nologo /fo%OBJ_DIR%\MAIN.RES %RC_DIR%\MAIN.RC
+IF EXIST %OBJ_DIR%\MAIN.RES cvtres /nologo /out:%OBJ_DIR%\MAINICON.OBJ /machine:x86 %OBJ_DIR%\MAIN.RES
+IF EXIST %OBJ_DIR%\MAINICON.OBJ SET RC_OBJ=%OBJ_DIR%\MAINICON.OBJ
+GOTO RC_DONE
+
+:RC_BCC
+REM No icon resource on DOS — skip
+SET RC_OBJ=
+GOTO RC_DONE
+
+:RC_DONE
+
+REM ---------------------------------------------------------------
+REM Compile library
+REM ---------------------------------------------------------------
+
+ECHO [CC] INSTALL.c
+%CC% %CFLAGS%  -c %COMP_OUT%%OBJ_DIR%\INSTALL.OBJ %SRC_DIR%\INSTALL.c %LIBS% >> %BUILD_LOG% 
+
+REM ---------------------------------------------------------------
+REM Create static library
+REM ---------------------------------------------------------------
+
+ECHO [LIB] INSTALL.LIB
+IF "%BLDPLATFORM%"=="MSVC" lib /NOLOGO /OUT:%OBJ_DIR%\INSTALL.LIB %OBJ_DIR%\INSTALL.OBJ >> %BUILD_LOG%
+IF "%BLDPLATFORM%"=="MINGW" ar rcs %OBJ_DIR%\INSTALL.LIB %OBJ_DIR%\INSTALL.OBJ >> %BUILD_LOG%
+IF "%BLDPLATFORM%"=="WCL" wlib -q -b %OBJ_DIR%\INSTALL.LIB +%OBJ_DIR%\INSTALL.OBJ >> %BUILD_LOG% 
+ECHO -------- >> %BUILD_LOG%
+
+REM ---------------------------------------------------------------
+REM Compile CLI tools
+REM ---------------------------------------------------------------
+
+ECHO [CC] PACK.C
+%CC% %CFLAGS%  -c %COMP_OUT%%OBJ_DIR%\PACK.OBJ %SRC_DIR%\PACK.C %LIBS% >> %BUILD_LOG% 
+
+ECHO [LINK] PACK.EXE
+IF "%BLDPLATFORM%"=="BCC" BCC %CFLAGS% -ePACK.EXE %OBJ_DIR%\PACK.OBJ %OBJ_DIR%\INSTALL.OBJ >> %BUILD_LOG% 
+IF "%BLDPLATFORM%"=="BCC" IF EXIST PACK.EXE MOVE PACK.EXE %BIN_DIR%\ >NUL
+IF NOT "%BLDPLATFORM%"=="BCC" %CC% %CFLAGS% %LINK_OUT%PACK.EXE %OBJ_DIR%\PACK.OBJ %RC_OBJ% %OBJ_DIR%\INSTALL.LIB %LIBS% >> %BUILD_LOG% 
+IF NOT "%BLDPLATFORM%"=="BCC" IF EXIST PACK.EXE MOVE PACK.EXE %BIN_DIR%\ >NUL
+
+ECHO [CC] EXTRACT.C
+%CC% %CFLAGS%  -c %COMP_OUT%%OBJ_DIR%\EXTRACT.OBJ %SRC_DIR%\EXTRACT.C %LIBS% >> %BUILD_LOG% 
+
+ECHO [LINK] EXTRACT.EXE
+IF "%BLDPLATFORM%"=="BCC" BCC %CFLAGS% -eEXTRACT.EXE %OBJ_DIR%\EXTRACT.OBJ %OBJ_DIR%\INSTALL.OBJ >> %BUILD_LOG% 
+IF "%BLDPLATFORM%"=="BCC" IF EXIST EXTRACT.EXE MOVE EXTRACT.EXE %BIN_DIR%\ >NUL
+IF NOT "%BLDPLATFORM%"=="BCC" %CC% %CFLAGS% %LINK_OUT%EXTRACT.EXE %OBJ_DIR%\EXTRACT.OBJ %RC_OBJ% %OBJ_DIR%\INSTALL.LIB %LIBS% >> %BUILD_LOG% 
+IF NOT "%BLDPLATFORM%"=="BCC" IF EXIST EXTRACT.EXE MOVE EXTRACT.EXE %BIN_DIR%\ >NUL
+
+ECHO -------- >> %BUILD_LOG%
+ECHO [DONE]
+ECHO Build Finished.

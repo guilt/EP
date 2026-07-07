@@ -1,0 +1,30 @@
+#include <windows.h>
+#include "..\include\ver.h"
+
+MAINICON ICON DISCARDABLE VIconFileName
+
+1 VERSIONINFO
+FILEOS VOS__WINDOWS32
+FILETYPE VFT_APP
+{
+   BLOCK "StringFileInfo"
+   {
+      BLOCK "040904E4"
+      {
+         VALUE "CompanyName", VCompanyName
+         VALUE "FileVersion", VFileVersion
+         VALUE "FileDescription", VFileDescription
+         VALUE "LegalCopyright", VLegalCopyright
+         VALUE "LegalTrademarks", VLegalTrademarks
+         VALUE "Comments", VComments
+         VALUE "InternalName", VInternalName
+         VALUE "Original Filename", VOriginalFilename
+         VALUE "ProductName", VProductName
+         VALUE "ProductVersion", VProductVersion
+      }
+   }
+   BLOCK "VarFileInfo" 
+   {
+      VALUE "Translation", VCountry, VLanguage
+   }
+}

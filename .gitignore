@@ -1,0 +1,25 @@
+# Build artifacts
+*.EXE
+*.OBJ
+*.RES
+*.LIB
+*.LOG
+*.ERR
+*.ILK
+*.PDB
+*.TLN
+*.MAP
+*.RSP
+*.$$$
+*.LST
+*.PAK
+
+# Directories
+BIN
+BUILD
+[Cc][Mm]ake[Bb]uild*
+
+# IDE
+.IDEA
+.vs
+*.user
